@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Retail Dashboard</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; }
+        #charts { display: flex; flex-wrap: wrap; gap: 40px; }
+        #line-chart, #map-chart { flex: 1 1 600px; min-width: 350px; }
+    </style>
+</head>
+<body>
+    <h1>Retail Dashboard</h1>
+    <div id="charts">
+        <div>
+            <h2>Running Total Over Time</h2>
+            <div id="line-chart"></div>
+        </div>
+        <div>
+            <h2>Orders by Country</h2>
+            <div id="map-chart"></div>
+        </div>
+    </div>
+    <!-- File input removed -->
+    <script>
+    // Helper to parse CSV to array of objects
+    function parseCSV(csv) {
+        const [header, ...rows] = csv.trim().split(/\r?\n/);
+        const keys = header.split(',');
+        return rows.map(row => {
+            const values = row.split(',');
+            return Object.fromEntries(keys.map((k, i) => [k, values[i]]));
+        });
+    }
+
+    // Load CSV files via fetch only
+    async function loadCSVFiles() {
+        const runningRes = await fetch('Running_total.csv');
+        const countryRes = await fetch('country_orders.csv');
+        if (!runningRes.ok || !countryRes.ok) throw new Error('Could not load CSV files.');
+        const runningCSV = await runningRes.text();
+        const countryCSV = await countryRes.text();
+        return { running: parseCSV(runningCSV), country: parseCSV(countryCSV) };
+    }
+
+    function renderCharts(runningData, countryData) {
+        // Line chart
+        const dates = runningData.map(row => row.SaleDate);
+        const runningTotals = runningData.map(row => +row.RunningTotal);
+        Plotly.newPlot('line-chart', [{
+            x: dates,
+            y: runningTotals,
+            type: 'scatter',
+            mode: 'lines',
+            name: 'Running Total',
+            line: { color: 'royalblue' }
+        }], {
+            title: 'Running Total Over Time',
+            xaxis: { title: 'Date', tickangle: -45 },
+            yaxis: { title: 'Running Total' },
+            margin: { l: 60, r: 30, t: 60, b: 100 },
+            autosize: true,
+            height: 600,
+            width: 1100
+        }, {responsive: true});
+
+        // Map chart
+        const countryNames = countryData.map(row => row.Country);
+        const orderCounts = countryData.map(row => +row.TotalOrders);
+        Plotly.newPlot('map-chart', [{
+            type: 'choropleth',
+            locationmode: 'country names',
+            locations: countryNames,
+            z: orderCounts,
+            text: countryNames,
+            colorscale: 'Reds',
+            colorbar: { title: 'Total Orders' }
+        }], {
+            title: 'Total Orders by Country',
+            geo: { projection: { type: 'natural earth' } },
+            margin: { l: 60, r: 30, t: 60, b: 60 },
+            autosize: true,
+            height: 600,
+            width: 1100
+        }, {responsive: true});
+    }
+
+    // Main
+    loadCSVFiles().then(data => {
+        if (data) renderCharts(data.running, data.country);
+    });
+    </script>
+    <!-- File upload and message removed -->
+</body>
+</html>
